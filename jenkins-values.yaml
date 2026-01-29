@@ -1,47 +1,60 @@
 controller:
+  # התיקון: חזרה למבנה של אובייקט (כמו שהצ'ארט דורש)
   image:
+    registry: "docker.io"
     repository: "jenkins/jenkins"
-    tag: "lts-jdk17"
+    tag: "lts"
   
-  # הגדלת משאבים וזמני המתנה (בגלל שהשרת איטי)
+  # משאבים מותאמים
   resources:
     requests:
-      cpu: "200m"
-      memory: "600Mi"
-    limits:
-      cpu: "1000m"
-      memory: "1200Mi"
-  
-  javaOpts: "-Xms512m -Xmx512m -Djenkins.install.runSetupWizard=false"
-  
-  serviceType: LoadBalancer
-  
-  # רשימת פלאגינים ללא גרסאות - נותן לג'נקינס לבחור את הכי טוב
-  installPlugins:
-    - kubernetes
-    - workflow-aggregator
-    - git
-    - configuration-as-code
-    - blueocean
-    - job-dsl
-
-  # הגדרות בריאות (Health Probes) מורחבות כדי שלא יהרוג את הפוד כשהוא חושב
-  startupProbe:
-    failureThreshold: 12
-    periodSeconds: 10
-    timeoutSeconds: 5
-
-agent:
-  enabled: true
-  resources:
-    requests:
-      cpu: "200m"
-      memory: "256Mi"
-    limits:
       cpu: "500m"
-      memory: "512Mi"
+      memory: "1024Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2048Mi"
 
-persistence:
-  enabled: true
-  storageClass: "gp3"
-  size: 8Gi
+  javaOpts: "-Xms1024m -Xmx1536m"
+
+  # תיקון הרשאות לדיסק (קריטי למניעת קריסה של ה-Init)
+  runAsUser: 1000
+  fsGroup: 1000
+  
+  # תיקון סבלנות (מונע Restart Loop בעלייה)
+  probes:
+    startup:
+      enabled: true
+      failureThreshold: 30
+      periodSeconds: 10
+    liveness:
+      enabled: true
+      initialDelaySeconds: 120
+      failureThreshold: 5
+    readiness:
+      enabled: true
+      initialDelaySeconds: 60
+      failureThreshold: 5
+
+  serviceType: LoadBalancer
+  servicePort: 8080
+
+  persistence:
+    enabled: true
+    size: "8Gi"
+    storageClass: "gp2"
+    accessMode: ReadWriteOnce
+
+  # פלאגינים בגרסת latest למניעת שגיאות 404
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+
+serviceAccount:
+  create: true
+  name: jenkins
+
+rbac:
+  create: true
+  readSecrets: true
