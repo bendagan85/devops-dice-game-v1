@@ -1,0 +1,47 @@
+pipeline {
+    agent {
+        kubernetes {
+            serviceAccount 'jenkins'
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: kubectl-agent
+spec:
+  containers:
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - cat
+    tty: true
+"""
+        }
+    }
+    
+    parameters {
+        // פרמטר להעלאת קובץ
+        file(name: 'CONFIG_FILE', description: 'Upload the secret config file')
+    }
+
+    stages {
+        stage('Inject Configuration') {
+            steps {
+                container('kubectl') {
+                    script {
+                        // מציאת הפודים של המשחק
+                        def pods = sh(script: "kubectl get pods -n devops -l app=dice-game -o jsonpath='{.items[*].metadata.name}'", returnStdout: true).trim().split(' ')
+                        
+                        for (pod in pods) {
+                            echo "Injecting file into pod: ${pod}"
+                            // העתקת הקובץ לתוך הפוד
+                            sh "kubectl cp \$CONFIG_FILE devops/${pod}:/app/secret_config.txt"
+                            // אימות
+                            sh "kubectl exec -n devops ${pod} -- ls -l /app/secret_config.txt"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
