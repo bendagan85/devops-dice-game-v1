@@ -9,7 +9,6 @@ metadata:
     app: jenkins-agent
 spec:
   containers:
-  # 1. קונטיינר שמריץ את מנוע הדוקר (השרת)
   - name: dind
     image: docker:24-dind
     securityContext:
@@ -18,7 +17,6 @@ spec:
       - name: DOCKER_TLS_CERTDIR
         value: ""
       
-  # 2. קונטיינר שמריץ את הפקודות (הלקוח)
   - name: docker
     image: docker:24-cli
     command:
@@ -28,7 +26,6 @@ spec:
       - name: DOCKER_HOST
         value: tcp://localhost:2375
 
-  # 3. קונטיינר לניהול קוברנטיס
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
@@ -39,7 +36,7 @@ spec:
     }
     
     environment {
-        // החלף לשם המשתמש שלך ב-DockerHub
+        // ודא שזה שם המשתמש הנכון (בלי ה-85 אם המשתמש הוא bendagan)
         DOCKERHUB_USER = 'bendagan' 
         APP_NAME = 'devops-dice-game'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -57,8 +54,15 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        // בדיקה שאנחנו מצליחים לדבר עם הדוקר
-                        sh 'docker info'
+                        // --- התיקון: המתנה עד שהדוקר עולה ---
+                        sh '''
+                          echo "Waiting for Docker daemon..."
+                          while ! docker info > /dev/null 2>&1; do
+                            echo "Docker not ready yet..."
+                            sleep 3
+                          done
+                          echo "Docker is ready!"
+                        '''
                         
                         echo 'Building Docker Image...'
                         sh "docker build -t ${DOCKER_IMAGE} ."
@@ -73,7 +77,8 @@ spec:
                     script {
                         echo 'Pushing to DockerHub...'
                         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh "docker login -u $USER -p $PASS"
+                            // שימוש ב---password-stdin לאבטחה טובה יותר
+                            sh 'echo $PASS | docker login -u $USER --password-stdin'
                             sh "docker push ${DOCKER_IMAGE}"
                         }
                     }
@@ -86,13 +91,11 @@ spec:
                 container('kubectl') {
                     script {
                         echo 'Deploying to Kubernetes...'
-                        // יצירת Namespace אם לא קיים
                         sh "kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -"
                         
-                        // עדכון גרסת האימג' בקובץ ה-Deployment
+                        // שימוש ב-sed עם מפריד אחר למקרה של תווים מיוחדים
                         sh "sed -i 's|PLACEHOLDER_IMAGE|${DOCKER_IMAGE}|g' k8s/deployment.yaml"
                         
-                        // הפעלת הקבצים
                         sh "kubectl apply -f k8s/deployment.yaml"
                         sh "kubectl apply -f k8s/service.yaml"
                     }
