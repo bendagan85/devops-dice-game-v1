@@ -8,23 +8,25 @@ metadata:
   labels:
     app: kubectl-agent
 spec:
+  # זה קריטי: שימוש במשתמש שנתנו לו הרשאות אדמין
+  serviceAccountName: jenkins
   containers:
   - name: kubectl
     image: bitnami/kubectl:latest
-    # הטריק שמונע ניתוקים: פקודת שינה אינסופית
+    # הפקודה הקלאסית והיציבה ביותר לאייג'נטים
     command:
-    - sleep
-    - infinity
+    - cat
+    tty: true
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "50m"
+        memory: "128Mi"
+        cpu: "100m"
 """
         }
     }
     
     parameters {
-        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Choose number of replicas')
+        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Choose Replicas')
     }
 
     stages {
@@ -32,13 +34,17 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        echo "🔌 Connected to cluster!"
+                        echo "🔌 Checking connectivity..."
+                        // פקודה מהירה לבדיקה שהכל זז
+                        sh "kubectl get nodes"
                         
-                        echo "🚀 Scaling deployment to ${params.REPLICAS}..."
-                        sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
+                        echo "🚀 Scaling to ${params.REPLICAS}..."
+                        // הוספנו Timeout כדי שאם זה נתקע, זה ייכשל ולא יחכה לנצח
+                        timeout(time: 2, unit: 'MINUTES') {
+                            sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
+                        }
                         
-                        echo "⏳ Verifying..."
-                        sleep 2
+                        echo "✅ Verifying..."
                         sh "kubectl get pods -n devops -l app=dice-game"
                     }
                 }
