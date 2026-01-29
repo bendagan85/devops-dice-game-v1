@@ -1,39 +1,46 @@
 pipeline {
     agent {
         kubernetes {
-            // הגדרת הבונוס: פוד דינמי שנוצר רק לזמן הריצה
             yaml """
 apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    some-label: some-label-value
+    app: jenkins-agent
 spec:
   containers:
+  # 1. קונטיינר שמריץ את מנוע הדוקר (השרת)
+  - name: dind
+    image: docker:24-dind
+    securityContext:
+      privileged: true
+    env:
+      - name: DOCKER_TLS_CERTDIR
+        value: ""
+      
+  # 2. קונטיינר שמריץ את הפקודות (הלקוח)
   - name: docker
-    image: docker:latest
+    image: docker:24-cli
     command:
     - cat
     tty: true
-    volumeMounts:
-    - mountPath: /var/run/docker.sock
-      name: docker-sock
+    env:
+      - name: DOCKER_HOST
+        value: tcp://localhost:2375
+
+  # 3. קונטיינר לניהול קוברנטיס
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
     - cat
     tty: true
-  volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
 """
         }
     }
     
     environment {
-       
-        DOCKERHUB_USER = 'bendagan' 
+        // החלף לשם המשתמש שלך ב-DockerHub
+        DOCKERHUB_USER = 'bendagan85' 
         APP_NAME = 'devops-dice-game'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         DOCKER_IMAGE = "${DOCKERHUB_USER}/${APP_NAME}:${IMAGE_TAG}"
@@ -50,6 +57,9 @@ spec:
             steps {
                 container('docker') {
                     script {
+                        // בדיקה שאנחנו מצליחים לדבר עם הדוקר
+                        sh 'docker info'
+                        
                         echo 'Building Docker Image...'
                         sh "docker build -t ${DOCKER_IMAGE} ."
                     }
