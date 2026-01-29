@@ -1,0 +1,45 @@
+pipeline {
+    agent {
+        kubernetes {
+            // חובה להשתמש בזהות עם הרשאות כדי לשנות את הקלאסטר
+            serviceAccount 'jenkins'
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: kubectl-agent
+spec:
+  containers:
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - cat
+    tty: true
+"""
+        }
+    }
+    
+    // כאן אנחנו מגדירים את הקלט מהמשתמש
+    parameters {
+        string(name: 'REPLICAS', defaultValue: '3', description: 'כמה רפליקות להרים?')
+    }
+
+    stages {
+        stage('Scale Deployment') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Scaling game to ${params.REPLICAS} replicas..."
+                        
+                        // פקודת הקסם שמשנה את הכמות
+                        sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
+                        
+                        // מציג את התוצאה
+                        sh "kubectl get pods -n devops"
+                    }
+                }
+            }
+        }
+    }
+}
