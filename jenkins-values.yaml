@@ -14,7 +14,9 @@ controller:
       cpu: "2000m"
       memory: "2048Mi"
 
-  javaOpts: "-Xms1024m -Xmx1536m"
+  # --- התיקון הקבוע לשגיאת ה-403 (Crumb/CSRF) ---
+  # הוספנו בסוף השורה את הפקודה שמבטלת את החסימה באופן קבוע
+  javaOpts: "-Xms1024m -Xmx1536m -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"
 
   # תיקון הרשאות לדיסק (קריטי למניעת קריסה של ה-Init)
   runAsUser: 1000
