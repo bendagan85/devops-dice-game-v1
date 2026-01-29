@@ -1,6 +1,9 @@
 pipeline {
     agent {
         kubernetes {
+            // --- התיקון: שימוש בזהות שיש לה הרשאות אדמין ---
+            serviceAccount 'jenkins'
+            
             yaml """
 apiVersion: v1
 kind: Pod
@@ -25,12 +28,12 @@ spec:
     env:
       - name: DOCKER_HOST
         value: tcp://localhost:2375
-    # הסרנו את kubectl מכאן כדי לחסוך זיכרון
 """
         }
     }
     
     environment {
+        // וודא שזה המשתמש הנכון (לפי הלוגים שלך זה bendagan)
         DOCKERHUB_USER = 'bendagan' 
         APP_NAME = 'devops-dice-game'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -81,16 +84,16 @@ spec:
 
         stage('Deploy to K8s') {
             steps {
-                container('docker') { // משתמשים בקונטיינר הקיים
+                container('docker') {
                     script {
                         echo 'Installing kubectl inside docker container...'
-                        // התקנה מהירה של kubectl ו-curl
                         sh "apk add --no-cache curl"
                         sh "curl -LO https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
                         sh "chmod +x kubectl"
                         sh "mv kubectl /usr/local/bin/"
                         
                         echo 'Deploying to Kubernetes...'
+                        // יצירת Namespace
                         sh "kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -"
                         
                         // עדכון הגרסה בקובץ
