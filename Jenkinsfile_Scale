@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            serviceAccount 'jenkins'
+            // הגדרת הפוד שיריץ את הפקודות
             yaml """
 apiVersion: v1
 kind: Pod
@@ -17,31 +17,43 @@ spec:
     tty: true
     resources:
       requests:
-        memory: "1Mi"   # <--- השקר הגדול: אנחנו טוענים שזה לא לוקח זיכרון
-        cpu: "1m"       # <--- כנ"ל לגבי מעבד
-      limits:
-        memory: "512Mi" # אבל נותנים לו תקרה גבוהה אם הוא יצליח לקחת
-        cpu: "500m"
-  - name: jnlp
-    resources:
-      requests:
-        memory: "1Mi"   # גם האייג'נט של ג'נקינס עצמו
-        cpu: "1m"
+        memory: "128Mi"
+        cpu: "100m"
 """
         }
     }
     
     parameters {
-        string(name: 'REPLICAS', defaultValue: '3', description: 'Scale to how many?')
+        // פרמטר בחירת מספר הרפליקות (ברירת מחדל 3)
+        string(name: 'REPLICAS', defaultValue: '3', description: 'Number of replicas to scale to')
     }
 
     stages {
-        stage('Scale Deployment') {
+        stage('Debug Info') {
             steps {
                 container('kubectl') {
                     script {
-                        echo "Force scaling to ${params.REPLICAS} replicas..."
+                        // 1. נדפיס מה ג'נקינס קיבל מהמשתמש
+                        echo "User requested replicas: ${params.REPLICAS}"
+                        
+                        // 2. נדפיס מה המצב הנוכחי לפני השינוי
+                        echo "Current status before scaling:"
+                        sh "kubectl get deployment devops-dice-game -n devops"
+                    }
+                }
+            }
+        }
+
+        stage('Execute Scale') {
+            steps {
+                container('kubectl') {
+                    script {
+                        // 3. ביצוע הפקודה בפועל
+                        echo "Executing scale command..."
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
+                        
+                        // 4. וידוא שהפקודה נקלטה
+                        echo "Status after scaling command:"
                         sh "kubectl get pods -n devops"
                     }
                 }
