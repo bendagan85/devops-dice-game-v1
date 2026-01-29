@@ -8,15 +8,13 @@ metadata:
   labels:
     app: kubectl-agent
 spec:
-  # זה קריטי: שימוש במשתמש שנתנו לו הרשאות אדמין
   serviceAccountName: jenkins
   containers:
   - name: kubectl
-    image: bitnami/kubectl:latest
-    # הפקודה הקלאסית והיציבה ביותר לאייג'נטים
-    command:
-    - cat
-    tty: true
+    # שינוי אסטרטגי: אימג' שמכיל מעטפת מלאה (מונע תקיעות)
+    image: dtzar/helm-kubectl:latest
+    # פקודה שמשאירה את הפוד דולק בלי להפריע
+    command: ["sleep", "infinity"]
     resources:
       requests:
         memory: "128Mi"
@@ -35,14 +33,11 @@ spec:
                 container('kubectl') {
                     script {
                         echo "🔌 Checking connectivity..."
-                        // פקודה מהירה לבדיקה שהכל זז
+                        // זה בדיקת השפיות הראשונה
                         sh "kubectl get nodes"
                         
                         echo "🚀 Scaling to ${params.REPLICAS}..."
-                        // הוספנו Timeout כדי שאם זה נתקע, זה ייכשל ולא יחכה לנצח
-                        timeout(time: 2, unit: 'MINUTES') {
-                            sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
-                        }
+                        sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
                         
                         echo "✅ Verifying..."
                         sh "kubectl get pods -n devops -l app=dice-game"
