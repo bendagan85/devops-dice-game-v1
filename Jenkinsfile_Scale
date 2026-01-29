@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // הגדרת הפוד שיריץ את הפקודות
+            // מגדירים פוד שישמש כאייג'נט לביצוע הפקודות
             yaml """
 apiVersion: v1
 kind: Pod
@@ -17,44 +17,47 @@ spec:
     tty: true
     resources:
       requests:
-        memory: "128Mi"
+        memory: "128Mi"  # דרישה הגיונית וצנועה
         cpu: "100m"
 """
         }
     }
     
     parameters {
-        // פרמטר בחירת מספר הרפליקות (ברירת מחדל 3)
-        string(name: 'REPLICAS', defaultValue: '3', description: 'Number of replicas to scale to')
+        choice(name: 'REPLICAS', choices: ['1', '3', '5', '0'], description: 'How many replicas do you want?')
     }
 
     stages {
-        stage('Debug Info') {
+        stage('Check Current Status') {
             steps {
                 container('kubectl') {
                     script {
-                        // 1. נדפיס מה ג'נקינס קיבל מהמשתמש
-                        echo "User requested replicas: ${params.REPLICAS}"
-                        
-                        // 2. נדפיס מה המצב הנוכחי לפני השינוי
-                        echo "Current status before scaling:"
-                        sh "kubectl get deployment devops-dice-game -n devops"
+                        echo "🔍 Checking current deployment status..."
+                        sh "kubectl get pods -n devops -l app=dice-game"
                     }
                 }
             }
         }
 
-        stage('Execute Scale') {
+        stage('Perform Scaling') {
             steps {
                 container('kubectl') {
                     script {
-                        // 3. ביצוע הפקודה בפועל
-                        echo "Executing scale command..."
+                        echo "🚀 Scaling deployment to ${params.REPLICAS} replicas..."
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
-                        
-                        // 4. וידוא שהפקודה נקלטה
-                        echo "Status after scaling command:"
-                        sh "kubectl get pods -n devops"
+                    }
+                }
+            }
+        }
+
+        stage('Verify Rollout') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "✅ Verifying new status..."
+                        // נותן למערכת שניה להתאפס
+                        sleep 2
+                        sh "kubectl get pods -n devops -l app=dice-game"
                     }
                 }
             }
