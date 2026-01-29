@@ -1,7 +1,6 @@
 pipeline {
     agent {
         kubernetes {
-            // מגדירים פוד שישמש כאייג'נט לביצוע הפקודות
             yaml """
 apiVersion: v1
 kind: Pod
@@ -12,51 +11,36 @@ spec:
   containers:
   - name: kubectl
     image: bitnami/kubectl:latest
+    # שינוי 1: פקודה יציבה יותר להחזקת הקונטיינר
     command:
-    - cat
-    tty: true
+    - sleep
+    - infinity
+    # שינוי 2: הורדנו את tty: true שהיה תוקע את הפקודה
     resources:
       requests:
-        memory: "128Mi"  # דרישה הגיונית וצנועה
-        cpu: "100m"
+        memory: "64Mi"
+        cpu: "50m"
 """
         }
     }
     
     parameters {
-        choice(name: 'REPLICAS', choices: ['1', '3', '5', '0'], description: 'How many replicas do you want?')
+        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Desired Replicas')
     }
 
     stages {
-        stage('Check Current Status') {
+        stage('Debug & Scale') {
             steps {
                 container('kubectl') {
                     script {
-                        echo "🔍 Checking current deployment status..."
-                        sh "kubectl get pods -n devops -l app=dice-game"
-                    }
-                }
-            }
-        }
-
-        stage('Perform Scaling') {
-            steps {
-                container('kubectl') {
-                    script {
-                        echo "🚀 Scaling deployment to ${params.REPLICAS} replicas..."
+                        // בדיקת תקשורת בסיסית - בלי פקודות מורכבות
+                        sh "kubectl version --client"
+                        
+                        echo "🚀 Scaling to ${params.REPLICAS}..."
+                        // הפקודה עצמה
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
-                    }
-                }
-            }
-        }
-
-        stage('Verify Rollout') {
-            steps {
-                container('kubectl') {
-                    script {
-                        echo "✅ Verifying new status..."
-                        // נותן למערכת שניה להתאפס
-                        sleep 2
+                        
+                        echo "✅ Done! Checking pods:"
                         sh "kubectl get pods -n devops -l app=dice-game"
                     }
                 }
