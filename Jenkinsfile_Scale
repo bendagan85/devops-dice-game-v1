@@ -1,7 +1,6 @@
 pipeline {
     agent {
         kubernetes {
-            // חובה להשתמש בזהות עם הרשאות כדי לשנות את הקלאסטר
             serviceAccount 'jenkins'
             yaml """
 apiVersion: v1
@@ -16,13 +15,24 @@ spec:
     command:
     - cat
     tty: true
+    resources:
+      requests:
+        memory: "1Mi"   # <--- השקר הגדול: אנחנו טוענים שזה לא לוקח זיכרון
+        cpu: "1m"       # <--- כנ"ל לגבי מעבד
+      limits:
+        memory: "512Mi" # אבל נותנים לו תקרה גבוהה אם הוא יצליח לקחת
+        cpu: "500m"
+  - name: jnlp
+    resources:
+      requests:
+        memory: "1Mi"   # גם האייג'נט של ג'נקינס עצמו
+        cpu: "1m"
 """
         }
     }
     
-    // כאן אנחנו מגדירים את הקלט מהמשתמש
     parameters {
-        string(name: 'REPLICAS', defaultValue: '3', description: 'כמה רפליקות להרים?')
+        string(name: 'REPLICAS', defaultValue: '3', description: 'Scale to how many?')
     }
 
     stages {
@@ -30,12 +40,8 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        echo "Scaling game to ${params.REPLICAS} replicas..."
-                        
-                        // פקודת הקסם שמשנה את הכמות
+                        echo "Force scaling to ${params.REPLICAS} replicas..."
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
-                        
-                        // מציג את התוצאה
                         sh "kubectl get pods -n devops"
                     }
                 }
