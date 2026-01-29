@@ -1,0 +1,47 @@
+controller:
+  image:
+    repository: "jenkins/jenkins"
+    tag: "lts-jdk17"
+  
+  # הגדלת משאבים וזמני המתנה (בגלל שהשרת איטי)
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "600Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1200Mi"
+  
+  javaOpts: "-Xms512m -Xmx512m -Djenkins.install.runSetupWizard=false"
+  
+  serviceType: LoadBalancer
+  
+  # רשימת פלאגינים ללא גרסאות - נותן לג'נקינס לבחור את הכי טוב
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    - blueocean
+    - job-dsl
+
+  # הגדרות בריאות (Health Probes) מורחבות כדי שלא יהרוג את הפוד כשהוא חושב
+  startupProbe:
+    failureThreshold: 12
+    periodSeconds: 10
+    timeoutSeconds: 5
+
+agent:
+  enabled: true
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 8Gi
