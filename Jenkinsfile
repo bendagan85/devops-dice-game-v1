@@ -40,7 +40,7 @@ spec:
     
     environment {
         // החלף לשם המשתמש שלך ב-DockerHub
-        DOCKERHUB_USER = 'bendagan85' 
+        DOCKERHUB_USER = 'bendagan' 
         APP_NAME = 'devops-dice-game'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         DOCKER_IMAGE = "${DOCKERHUB_USER}/${APP_NAME}:${IMAGE_TAG}"
