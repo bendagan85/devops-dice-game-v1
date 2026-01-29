@@ -11,11 +11,10 @@ spec:
   containers:
   - name: kubectl
     image: bitnami/kubectl:latest
-    # שינוי 1: פקודה יציבה יותר להחזקת הקונטיינר
+    # הטריק שמונע ניתוקים: פקודת שינה אינסופית
     command:
     - sleep
     - infinity
-    # שינוי 2: הורדנו את tty: true שהיה תוקע את הפקודה
     resources:
       requests:
         memory: "64Mi"
@@ -25,22 +24,21 @@ spec:
     }
     
     parameters {
-        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Desired Replicas')
+        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Choose number of replicas')
     }
 
     stages {
-        stage('Debug & Scale') {
+        stage('Action') {
             steps {
                 container('kubectl') {
                     script {
-                        // בדיקת תקשורת בסיסית - בלי פקודות מורכבות
-                        sh "kubectl version --client"
+                        echo "🔌 Connected to cluster!"
                         
-                        echo "🚀 Scaling to ${params.REPLICAS}..."
-                        // הפקודה עצמה
+                        echo "🚀 Scaling deployment to ${params.REPLICAS}..."
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
                         
-                        echo "✅ Done! Checking pods:"
+                        echo "⏳ Verifying..."
+                        sleep 2
                         sh "kubectl get pods -n devops -l app=dice-game"
                     }
                 }
