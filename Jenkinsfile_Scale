@@ -1,6 +1,7 @@
 pipeline {
     agent {
         kubernetes {
+            // זה החלק שאומר לג'נקינס: "תרים פוד חדש לעבודה הזו"
             yaml """
 apiVersion: v1
 kind: Pod
@@ -11,9 +12,7 @@ spec:
   serviceAccountName: jenkins
   containers:
   - name: kubectl
-    # שינוי אסטרטגי: אימג' שמכיל מעטפת מלאה (מונע תקיעות)
     image: dtzar/helm-kubectl:latest
-    # פקודה שמשאירה את הפוד דולק בלי להפריע
     command: ["sleep", "infinity"]
     resources:
       requests:
@@ -24,23 +23,23 @@ spec:
     }
     
     parameters {
-        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Choose Replicas')
+        choice(name: 'REPLICAS', choices: ['3', '1', '5', '0'], description: 'Choose number of replicas')
     }
 
     stages {
         stage('Action') {
             steps {
+                // כאן אנחנו נכנסים לתוך הקונטיינר שהרמנו למעלה
                 container('kubectl') {
                     script {
-                        echo "🔌 Checking connectivity..."
-                        // זה בדיקת השפיות הראשונה
-                        sh "kubectl get nodes"
+                        echo "🚀 Scaling to ${params.REPLICAS} replicas..."
                         
-                        echo "🚀 Scaling to ${params.REPLICAS}..."
+                        // ביצוע הסקיילינג ב-Namespace הנכון
                         sh "kubectl scale deployment devops-dice-game --replicas=${params.REPLICAS} -n devops"
                         
-                        echo "✅ Verifying..."
-                        sh "kubectl get pods -n devops -l app=dice-game"
+                        echo "✅ Verifying status..."
+                        // בדיקה שהפודים באמת עולים/יורדים
+                        sh "kubectl get pods -n devops"
                     }
                 }
             }
