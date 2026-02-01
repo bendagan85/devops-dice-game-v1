@@ -4,7 +4,7 @@ metadata:
   name: dice-game-service
   namespace: devops
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: dice-game
   ports:
