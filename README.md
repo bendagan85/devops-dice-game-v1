@@ -20,7 +20,7 @@ The entire infrastructure is provisioned using **Terraform** on AWS. The setup i
 * **Orchestrator:** Elastic Kubernetes Service (EKS)
 * **IaC Tool:** Terraform
 
-![Infrastructure Structure](project6images/stucture.png)
+![Gemini Generated Image](Gemini_Generated_Image_ne1nvune1nvune1n.png)
 
 ### Cluster Status
 Successful provisioning of EKS nodes ready for workload scheduling:
@@ -125,5 +125,6 @@ To deploy this project from scratch:
     helm install jenkins jenkins/jenkins -n jenkins --create-namespace
     ```
 4.  **Configure Pipelines:** Import the `Jenkinsfile`s located in the `pipelines/` directory.
+
 
 **Tech Stack:** AWS, Terraform, Kubernetes, Docker, Jenkins, Python (Flask), Nginx.
