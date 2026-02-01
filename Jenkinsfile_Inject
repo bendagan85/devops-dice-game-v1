@@ -11,7 +11,6 @@ metadata:
 spec:
   containers:
   - name: kubectl
-    # שימוש באימג' המוכר והבטוח שלנו
     image: dtzar/helm-kubectl:latest
     command:
     - cat
@@ -21,8 +20,8 @@ spec:
     }
     
     parameters {
-        // המשתמש יעלה קובץ טקסט דרך הממשק של ג'נקינס
-        file(name: 'CONFIG_FILE', description: 'Upload the secret config file (e.g., secret.txt)')
+        // שינוי: במקום להעלות קובץ, נבקש טקסט (הרבה יותר אמין)
+        string(name: 'SECRET_CONTENT', defaultValue: 'MY_SECRET_KEY=super_secret_123', description: 'Enter the content of the config file')
     }
 
     stages {
@@ -30,28 +29,29 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        echo "🔍 Searching for game pods in 'devops' namespace..."
+                        echo "📝 Creating secret file locally..."
+                        // שלב 1: יצירת הקובץ מתוך הטקסט שהזנת
+                        writeFile file: 'secret.txt', text: params.SECRET_CONTENT
                         
-                        // שליפת שמות הפודים למערך
-                        // שים לב: תוודא שה-Label תואם למה שהגדרת ב-Deployment
+                        echo "🔍 Searching for game pods in 'devops' namespace..."
                         def pods = sh(script: "kubectl get pods -n devops -l app=dice-game -o jsonpath='{.items[*].metadata.name}'", returnStdout: true).trim().split(' ')
                         
-                        // אם לא נמצאו פודים, נדפיס אזהרה
                         if (pods.length == 0 || pods[0] == "") {
                             error "❌ No pods found with label app=dice-game in namespace devops!"
                         }
 
-                        // לולאה שעוברת פוד-פוד ומזריקה את הקובץ
                         for (pod in pods) {
                             echo "💉 Injecting file into pod: ${pod}"
                             
-                            // 1. העתקה (CP)
-                            // $CONFIG_FILE הוא הנתיב לקובץ שהעלית לג'נקינס
-                            sh "kubectl cp \$CONFIG_FILE devops/${pod}:/app/secret_config.txt"
+                            // שלב 2: העתקת הקובץ שיצרנו (secret.txt) לתוך הפוד
+                            // שים לב: הפעם השם הוא קבוע ולכן זה לא ייכשל
+                            sh "kubectl cp secret.txt devops/${pod}:/app/secret_config.txt"
                             
-                            // 2. וידוא (Verify)
-                            // הרצת פקודת LS בתוך הפוד כדי לראות שהקובץ הגיע
+                            // שלב 3: וידוא
                             sh "kubectl exec -n devops ${pod} -- ls -l /app/secret_config.txt"
+                            
+                            // בונוס: בוא נראה מה יש בפנים (רק בשביל הטסט)
+                            sh "kubectl exec -n devops ${pod} -- cat /app/secret_config.txt"
                         }
                         
                         echo "✅ Configuration injected successfully into all pods!"
